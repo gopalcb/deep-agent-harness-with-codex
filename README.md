@@ -70,3 +70,7 @@ Python exposes `/v1/runs/{run_id}/integrations/documents` (POST publish, GET sea
 Set `LAB_DOCUMENT_URL` + `LAB_DOCUMENT_TOKEN` for the document adapter. Set `LAB_MCP_URL` + `LAB_MCP_TOKEN` + `LAB_MCP_TOOLS` (JSON agent-to-tool-name arrays) for a trusted MCP server. Enable only needed names in comma-separated `LAB_INTEGRATION_PERMISSIONS`: `publish_markdown`, `reconcile_markdown`, `search_documents`, `mcp_call`. Default is deny; construction performs no network calls. An authenticated operator must request publication explicitly. The service does not silently publish after a coding task.
 
 Live execution state and artifacts must reside outside writable repositories. Artifact references are relative to the service data directory's `artifacts/` folder; workspace `.artifacts` paths are ignored.
+
+## License
+
+Licensed under the [MIT License](LICENSE).
