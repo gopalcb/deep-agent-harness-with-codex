@@ -1,0 +1,393 @@
+{
+  "project": "deep-agent-harness-with-codex-lab",
+  "files": {
+    "services/agent-orchestrator/src/orchestrator/__init__.py": {
+      "purpose": "Codex-first orchestration service; execution remains in NestJS.",
+      "functions": {}
+    },
+    "services/agent-orchestrator/src/orchestrator/api.py": {
+      "purpose": "Construct the FastAPI service and own bounded background reconciliation.",
+      "functions": {
+        "advance_active_round": {
+          "summary": "Advance at most 100 eligible runs per project, rotating fairly by run ID."
+        },
+        "advance_active_runs": {
+          "summary": "Run fair bounded rounds at one-second intervals outside the event loop."
+        },
+        "create_app": {
+          "summary": "Support disposable offline services while enforcing production startup auth."
+        },
+        "close_service": {
+          "summary": "Wait for any graph turn before closing owned transport and persistence."
+        },
+        "not_found": {
+          "summary": "Translate missing scoped records without leaking foreign project details."
+        },
+        "conflict": {
+          "summary": "Return a bounded validation or idempotency conflict response."
+        },
+        "health": {
+          "summary": "Expose public liveness without configuration or credentials."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/codex_client.py": {
+      "purpose": "Authenticated HTTP transport to NestJS, the only Codex SDK owner.",
+      "functions": {
+        "CodexClient.__init__": {
+          "summary": "Create a bounded authenticated client; transport permits offline fixtures."
+        },
+        "CodexClient.start": {
+          "summary": "Admit one durable task through the authoritative workspace boundary."
+        },
+        "CodexClient.status": {
+          "summary": "Reconcile a previously admitted or uncertain invocation."
+        },
+        "CodexClient.resume": {
+          "summary": "Resume an existing task once for a particular repair revision."
+        },
+        "CodexClient.cancel": {
+          "summary": "Request cancellation; confirmation must come from the SDK owner."
+        },
+        "CodexClient.events": {
+          "summary": "Fetch one bounded event page for correlation and replay."
+        },
+        "CodexClient.close": {
+          "summary": "Close pooled network connections."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/config.py": {
+      "purpose": "Load loopback service configuration without exposing internal credentials.",
+      "functions": {
+        "load_settings": {
+          "summary": "Fail closed when the required internal service credential is absent."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/context.py": {
+      "purpose": "Enforce configured context headroom inside actual Deep Agents model calls.",
+      "functions": {
+        "count_context_tokens": {
+          "summary": "Conservatively estimate tokens from UTF-8 bytes including tool metadata."
+        },
+        "ContextBudgetMiddleware.__init__": {
+          "summary": "Reserve output/headroom before applying the application's 70% policy."
+        },
+        "ContextBudgetMiddleware.check_request": {
+          "summary": "Count system, tools and messages on every actual model invocation."
+        },
+        "ContextBudgetMiddleware.wrap_model_call": {
+          "summary": "Guard the synchronous model path after SDK compaction/offloading."
+        },
+        "ContextBudgetMiddleware.awrap_model_call": {
+          "summary": "Apply the identical policy to asynchronous model calls."
+        },
+        "ObservedSummarizationMiddleware.__init__": {
+          "summary": "Retain the SDK summarizer while observing its scoped history artifacts."
+        },
+        "ObservedSummarizationMiddleware.snapshot_history": {
+          "summary": "Fingerprint existing SDK conversation-history files without logging content."
+        },
+        "ObservedSummarizationMiddleware.emit_offloads": {
+          "summary": "Emit receipts only for history revisions written during this SDK call."
+        },
+        "ObservedSummarizationMiddleware.wrap_model_call": {
+          "summary": "Observe SDK offload before handing its compacted prompt downstream."
+        },
+        "ObservedSummarizationMiddleware.awrap_model_call": {
+          "summary": "Observe actual asynchronous SDK history revisions with the same receipts."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/contracts.py": {
+      "purpose": "Shared validated transport models for graph, tools and the NestJS boundary.",
+      "functions": {}
+    },
+    "services/agent-orchestrator/src/orchestrator/documents.py": {
+      "purpose": "Publish completed Markdown through an explicit authenticated lab API contract.\n\nThis is an integration boundary, not a claim of compatibility with any existing\nprivate API. A receipt must bind project, idempotency key and submitted hash.",
+      "functions": {
+        "validate_document_path": {
+          "summary": "Allow relative Markdown artifact paths and reject traversal or aliases."
+        },
+        "MarkdownPublisher.__init__": {
+          "summary": "Require authentication and HTTPS except explicit loopback development."
+        },
+        "MarkdownPublisher.publish": {
+          "summary": "Send an admitted revision once and validate its exact READY receipt."
+        },
+        "MarkdownPublisher.accept_receipt": {
+          "summary": "Validate a receipt against its immutable revision before marking delivery."
+        },
+        "MarkdownPublisher.reconcile": {
+          "summary": "Query an authenticated receipt endpoint without repeating the original write."
+        },
+        "MarkdownPublisher.search": {
+          "summary": "Search the configured service with mandatory project scope."
+        },
+        "MarkdownPublisher.close": {
+          "summary": "Close only the transport owned by this publisher."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/events.py": {
+      "purpose": "Collect correlated redacted events with SQLite replay and recoverable JSONL export.",
+      "functions": {
+        "redact": {
+          "summary": "Remove secret fields and recognizable credentials before persistence/export."
+        },
+        "EventCollector.__init__": {
+          "summary": "Initialize the durable sequence and repair export files on restart."
+        },
+        "EventCollector.append": {
+          "summary": "Validate, deduplicate and redact an event before durable storage."
+        },
+        "EventCollector.export": {
+          "summary": "Atomically replace each rotated file using database order under its write lock."
+        },
+        "EventCollector.replay": {
+          "summary": "Replay one correlated stream after a durable global cursor."
+        },
+        "EventCollector.emit": {
+          "summary": "Create a timestamped correlated envelope and append it once."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/integration_routes.py": {
+      "purpose": "Authenticated explicit document/MCP operations, disabled by default policy.",
+      "functions": {
+        "publish": {
+          "summary": "Publish only with an explicit configured permission and authenticated run scope."
+        },
+        "reconcile": {
+          "summary": "Read back the admitted revision rather than repeating an uncertain write."
+        },
+        "search": {
+          "summary": "Search the configured trusted document service in an existing run scope."
+        },
+        "call_mcp": {
+          "summary": "Call an explicitly configured MCP capability with server-bound scope."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/integrations.py": {
+      "purpose": "Construct optional authenticated integrations and gate explicit scoped API actions.\n\nNo network requests occur during configuration. HTTP route authentication belongs\nto the API; these operations additionally require configured capability permission\nand an existing project/run pair. They are never called automatically by workflow.",
+      "functions": {
+        "IntegrationServices.__init__": {
+          "summary": "Bind durable scope and externally configured capability permissions."
+        },
+        "IntegrationServices.from_env": {
+          "summary": "Load optional credentials without logging, persisting or contacting endpoints."
+        },
+        "IntegrationServices.authorize": {
+          "summary": "Require a configured operation and an existing run in the supplied project."
+        },
+        "IntegrationServices.publish": {
+          "summary": "Publish only an explicit authenticated API request to an authorized run."
+        },
+        "IntegrationServices.reconcile": {
+          "summary": "Reconcile only an admission belonging to this exact project and run."
+        },
+        "IntegrationServices.search": {
+          "summary": "Search the configured document contract within an authorized project."
+        },
+        "IntegrationServices.mcp_call": {
+          "summary": "Invoke an explicit per-agent allowlisted MCP action with immutable scope."
+        },
+        "IntegrationServices.close": {
+          "summary": "Release the configured owned document HTTP client at service shutdown."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/memory.py": {
+      "purpose": "Keep candidate knowledge separate from reviewed, evidence-backed project memory.",
+      "functions": {
+        "MemoryStore.__init__": {
+          "summary": "Share the project's durable record store."
+        },
+        "MemoryStore.save_candidate": {
+          "summary": "Save untrusted extraction with provenance; never promote it implicitly."
+        },
+        "MemoryStore.promote": {
+          "summary": "Require explicit review and successful nonempty check evidence for promotion."
+        },
+        "MemoryStore.retrieve": {
+          "summary": "Filter expired/invalidated candidates and deduplicate verified content."
+        },
+        "MemoryStore.invalidate": {
+          "summary": "Remove superseded knowledge from future retrieval without losing provenance."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/planning.py": {
+      "purpose": "Build bounded task DAGs with an artifact-only Deep Agents planning harness.",
+      "functions": {
+        "DemoPlanner.plan": {
+          "summary": "Build a serial implementation and test DAG against registered fixture checks."
+        },
+        "PlanningEvents.__init__": {
+          "summary": "Retain one run-bound collector view without duplicating stored events."
+        },
+        "PlanningEvents.emit": {
+          "summary": "Bind tool events to the planner's workflow and role."
+        },
+        "DeepPlanner.__init__": {
+          "summary": "Keep per-run artifact namespaces and inject offline models in tests."
+        },
+        "DeepPlanner.stage_skills": {
+          "summary": "Copy only trusted bounded sample skills into the isolated artifact backend."
+        },
+        "DeepPlanner.build_agent": {
+          "summary": "Construct artifact-scoped SDK compaction and a restricted research subagent."
+        },
+        "DeepPlanner.plan": {
+          "summary": "Translate model planning output into server-owned scoped assignments."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/routing.py": {
+      "purpose": "Authenticated loopback REST routes over durable workflow operations.",
+      "functions": {
+        "authenticate": {
+          "summary": "Reject missing or incorrect internal bearer credentials in constant time."
+        },
+        "create_run": {
+          "summary": "Admit the run durably; the lifespan scheduler advances it in the background."
+        },
+        "inspect_run": {
+          "summary": "Read one run and perform at most one external task reconciliation."
+        },
+        "advance_run": {
+          "summary": "Advance one bounded scheduling turn."
+        },
+        "approve_run": {
+          "summary": "Record an exact-action decision before any sensitive dispatch."
+        },
+        "cancel_run": {
+          "summary": "Request cancellation and return its confirmed or uncertain state."
+        },
+        "replay_events": {
+          "summary": "Return one bounded replay page; NestJS owns the browser SSE transport."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/storage.py": {
+      "purpose": "Persist project-scoped records and atomic admissions in local SQLite.",
+      "functions": {
+        "canonical": {
+          "summary": "Encode records deterministically for durable conflict detection."
+        },
+        "Store.__init__": {
+          "summary": "Create the local database and its project-scoped record table."
+        },
+        "Store.connect": {
+          "summary": "Open a bounded-wait connection; callers own its context and closure."
+        },
+        "Store.put": {
+          "summary": "Replace one scoped record atomically."
+        },
+        "Store.get": {
+          "summary": "Read one scoped record without crossing project boundaries."
+        },
+        "Store.list": {
+          "summary": "List records in deterministic key order within one project."
+        },
+        "Store.claim": {
+          "summary": "Insert once, returning the original admission or rejecting changed input."
+        },
+        "Store.close": {
+          "summary": "Connections belong to individual operations; there is no shared handle."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/tools.py": {
+      "purpose": "Expose scoped coordination tools and allowlisted MCP Streamable HTTP calls.",
+      "functions": {
+        "ScopedTools.__init__": {
+          "summary": "Keep identity and service boundaries outside model supplied arguments."
+        },
+        "ScopedTools.call": {
+          "summary": "Audit and dispatch one explicitly permitted coordination capability."
+        },
+        "ScopedTools.langchain_tools": {
+          "summary": "Expose planning-safe wrappers without repository edits or shell access."
+        },
+        "mcp_http_client": {
+          "summary": "Disallow credential-bearing redirect requests from the trusted MCP endpoint."
+        },
+        "MCPTools.__init__": {
+          "summary": "Require authenticated HTTPS and refuse arbitrary transports or endpoints."
+        },
+        "MCPTools.call": {
+          "summary": "Invoke an allowed tool using trusted scope and redact its untrusted response."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/validation.py": {
+      "purpose": "Validate planner DAGs and independent verification evidence before dispatch.",
+      "functions": {
+        "validate_plan": {
+          "summary": "Reject ambiguous identities, unsafe dependencies and cyclic plans."
+        },
+        "verified_result": {
+          "summary": "Require explicit passing evidence for every registered assignment check."
+        },
+        "direct_instruction": {
+          "summary": "Include bounded visual metadata as untrusted data in a direct assignment."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/workflow.py": {
+      "purpose": "Durable LangGraph coordination with write-ahead dispatch and bounded repairs.\n\nSQLite records are the side-effect ledger. Graph checkpoints retain scheduling\nstate; Codex thread state and authoritative workspace leases stay in NestJS.",
+      "functions": {
+        "WorkflowService.__init__": {
+          "summary": "Compile the actual graph with durable local SQLite checkpointing."
+        },
+        "WorkflowService.create": {
+          "summary": "Admit an idempotent request before planning or any external dispatch."
+        },
+        "WorkflowService.emit": {
+          "summary": "Bind each coordinator event to the admitted workflow identity."
+        },
+        "WorkflowService.save": {
+          "summary": "Persist side-effect admission and result state before proceeding."
+        },
+        "WorkflowService.inspect": {
+          "summary": "Read project-scoped state without assuming an external result."
+        },
+        "WorkflowService.advance": {
+          "summary": "Perform one bounded durable graph turn, never polling in a tight loop."
+        },
+        "WorkflowService.coordinate": {
+          "summary": "Plan, select one dependency-ready task, then reconcile or dispatch it."
+        },
+        "WorkflowService.execute_task": {
+          "summary": "Write ahead of each operation, gate approval and bound repair attempts."
+        },
+        "WorkflowService.collect_codex_events": {
+          "summary": "Forward one bounded SDK event page with original IDs and durable replay cursor."
+        },
+        "WorkflowService.approve": {
+          "summary": "Approve only the exact current action; denial is terminal before dispatch."
+        },
+        "WorkflowService.cancel": {
+          "summary": "Durably request cancellation without claiming an unconfirmed stop."
+        },
+        "WorkflowService.reconcile_cancellation": {
+          "summary": "Cancel once, then reconcile outstanding execution without new writes."
+        },
+        "WorkflowService.close": {
+          "summary": "Release the checkpoint connection after background work stops."
+        }
+      }
+    },
+    "services/agent-orchestrator/src/orchestrator/workspaces.py": {
+      "purpose": "Resolve logical workspace references; NestJS owns writer admission and leases.",
+      "functions": {
+        "action_digest": {
+          "summary": "Bind approval to all immutable dispatch fields, including revision and scope."
+        }
+      }
+    }
+  }
+}
