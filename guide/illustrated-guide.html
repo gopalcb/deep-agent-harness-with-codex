@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en" data-portfolio-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Codex with a quota fallback for personal use: a tiny hybrid agent harness</title><style>
+*{box-sizing:border-box}
+html{color-scheme:dark;scroll-behavior:auto}
+body{margin:0;background:#101619;color:#c8d6d1;font:13px/1.9 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:auto;padding:32px clamp(20px,3vw,48px) 48px}
+h1.breadcrumb{font:400 11px/1.9 ui-monospace,SFMono-Regular,monospace;letter-spacing:.06em;color:#c8d6d1;margin:0 0 24px}
+h2,h3{color:#9de8cc;font-family:ui-monospace,SFMono-Regular,monospace;font-weight:400;letter-spacing:.09em;text-transform:uppercase;line-height:1.8}
+h2{font-size:13px;margin:34px 0 14px;padding-top:16px;border-top:1px solid #314047}
+h3{font-size:12px;margin:24px 0 10px}
+p{max-width:95ch;margin:10px 0 14px}a{color:#9de8cc;text-underline-offset:4px}a:hover{color:#c5ffe8;cursor:pointer}
+a:focus-visible,[tabindex]:focus-visible{outline:2px solid #9de8cc;outline-offset:4px}
+.lede{font-size:13px;color:#a5b4ba;margin-bottom:20px}
+.notice,.card{background:#171f23;border:1px solid #334448;border-radius:4px;padding:14px 18px;margin:20px 0}.notice strong{font:10px/1.8 ui-monospace,monospace;letter-spacing:.09em;color:#9de8cc}.notice p{font-size:12px;margin:8px 0 0;color:#a5b4ba}
+code{font:11.5px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;background:#1b282c;color:#b7ded0;border:1px solid #314047;border-radius:3px;padding:1px 4px}
+pre{margin:0;padding:12px 16px 16px;background:#121e24;line-height:1.8}pre::before{content:attr(data-language);display:block;font:9px/1.8 ui-monospace,monospace;letter-spacing:.12em;color:#879aa2;margin-bottom:8px}pre code{display:block;white-space:pre;overflow-wrap:normal;background:none;border:0;padding:0;color:#d3dfe5;font-size:11.5px}
+.token.comment{color:#869d99}.token.key{color:#83c7ed}.token.string{color:#b8dda0}.token.number{color:#e9bb87}.token.keyword{color:#c0a7ec}
+.scroll{width:100%;max-width:100%;overflow-x:auto;border:1px solid #334448;border-radius:4px;margin:14px 0}.scroll:focus-visible{outline:2px solid #9de8cc}figure{margin:22px 0}figure .scroll{background:#101619;padding:10px}figcaption{font-size:11px;line-height:1.8;color:#a5b4ba;max-width:100ch}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:12px;line-height:1.8}th,td{text-align:left;vertical-align:top;padding:10px 12px;border:1px solid #334448}th{background:#171f23;color:#9de8cc;font-weight:500}
+ul,ol{padding-left:21px}li{margin:5px 0}footer{border-top:1px solid #334448;padding-top:18px;margin-top:28px;color:#a5b4ba;font-size:11px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.sources li{margin:7px 0}section{scroll-margin-top:18px}
+@media(max-width:650px){main{padding:24px 18px 36px}.columns{grid-template-columns:1fr}h1.breadcrumb{font-size:10px}h2{font-size:12px}th,td{padding:8px 10px}}
+
+/* Script-free diagrams: neutral resource cards and one mint accent. */
+.system-diagram{padding:18px;background:#121b1f;border:1px solid #314047;border-radius:4px;overflow-wrap:anywhere}
+.diagram-title{font:11px/1.8 ui-monospace,monospace;letter-spacing:.06em;color:#9de8cc;margin:0 0 18px}
+.diagram-group{margin:0}.diagram-label{font:9px/1.8 ui-monospace,monospace;letter-spacing:.07em;color:#a5b4ba;margin:0 0 10px}
+.diagram-flow,.diagram-parallel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;list-style:none;margin:0;padding:0}
+.diagram-parallel{gap:12px}.diagram-parallel:has(> :last-child:nth-child(2)){grid-template-columns:repeat(2,minmax(0,1fr))}
+.diagram-node{position:relative;min-width:0;margin:0;padding:13px 12px;border:1px solid #40514e;border-radius:4px;background:#151f23;line-height:1.7}
+.diagram-node strong{display:block;color:#d3dfda;font:400 10.5px/1.8 ui-monospace,monospace;overflow-wrap:anywhere}
+.diagram-node span{display:block;margin-top:7px;color:#a5b4ba;font-size:11px;line-height:1.8}
+.diagram-flow>.diagram-node:not(:last-child)::after{content:'→';position:absolute;right:-21px;top:calc(50% - 12px);width:18px;text-align:center;color:#83958f;font-size:16px}
+.diagram-transition{color:#83958f;text-align:center;font:16px/1.4 ui-monospace,monospace;margin:12px 0}
+.diagram-note{font-size:11px;line-height:1.8;color:#a5b4ba;margin:16px 0 0;padding-top:12px;border-top:1px solid #314047;max-width:none}
+@media(max-width:650px){.system-diagram{padding:14px}.diagram-flow,.diagram-parallel,.diagram-parallel:has(> :last-child:nth-child(2)){grid-template-columns:1fr}.diagram-flow{gap:25px}.diagram-flow>.diagram-node:not(:last-child)::after{content:'↓';right:calc(50% - 9px);top:auto;bottom:-25px;height:24px;line-height:24px}.diagram-node strong{font-size:11px}.diagram-label{font-size:9px}}
+.resource-context{font-size:12px;color:#a5b4ba;margin:0 0 16px}
+
+.diagram-divider{border-top:1px solid #314047;margin:18px 0}
+
+/* Shared light-only reader palette, also used by standalone project articles. */
+/* Each route loads a fresh document, so its entrance starts with its content. */
+@keyframes article-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-portfolio-theme="light"] body > main {
+    animation: article-enter 240ms ease-out;
+  }
+}
+html[data-portfolio-theme="light"] { color-scheme: light; }
+html[data-portfolio-theme="light"] body {
+  background: #f5f4ef !important;
+  color: #26322f !important;
+}
+html[data-portfolio-theme="light"] h1,
+html[data-portfolio-theme="light"] strong,
+html[data-portfolio-theme="light"] th { color: #26322f !important; }
+html[data-portfolio-theme="light"] h2,
+html[data-portfolio-theme="light"] h3 {
+  color: #214b3d !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -.02em !important;
+  line-height: 1.45 !important;
+  text-transform: uppercase !important;
+}
+html[data-portfolio-theme="light"] h1.breadcrumb,
+html[data-portfolio-theme="light"] .breadcrumb {
+  color: #26322f !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-weight: 700 !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+}
+html[data-portfolio-theme="light"] .diagram-head h2 {
+  color: #26322f !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-weight: 700 !important;
+  letter-spacing: .06em !important;
+  line-height: 1.55 !important;
+  text-transform: uppercase !important;
+}
+html[data-portfolio-theme="light"] p,
+html[data-portfolio-theme="light"] li,
+html[data-portfolio-theme="light"] td,
+html[data-portfolio-theme="light"] small,
+html[data-portfolio-theme="light"] figcaption,
+html[data-portfolio-theme="light"] .lede,
+html[data-portfolio-theme="light"] .diagram-note,
+html[data-portfolio-theme="light"] .resource-context {
+  color: #4d5c57 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+html[data-portfolio-theme="light"] .opening-copy p,
+html[data-portfolio-theme="light"] .diagram-head p,
+html[data-portfolio-theme="light"] .lane-label > p,
+html[data-portfolio-theme="light"] .card p,
+html[data-portfolio-theme="light"] .route > p,
+html[data-portfolio-theme="light"] .tool-card p,
+html[data-portfolio-theme="light"] .bedrock-card p,
+html[data-portfolio-theme="light"] .doc-intro p,
+html[data-portfolio-theme="light"] .doc-heading p,
+html[data-portfolio-theme="light"] .doc-card p {
+  color: #43544e !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1.9 !important;
+}
+html[data-portfolio-theme="light"] p,
+html[data-portfolio-theme="light"] li,
+html[data-portfolio-theme="light"] td,
+html[data-portfolio-theme="light"] small,
+html[data-portfolio-theme="light"] figcaption,
+html[data-portfolio-theme="light"] .diagram-node span,
+html[data-portfolio-theme="light"] .workflow-tiles span,
+html[data-portfolio-theme="light"] .mini-flow,
+html[data-portfolio-theme="light"] .closeout-flow > span,
+html[data-portfolio-theme="light"] .remote-flow > span,
+html[data-portfolio-theme="light"] .remote-flow > strong {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+html[data-portfolio-theme="light"] a { color: #17624c !important; }
+html[data-portfolio-theme="light"] .sidebar {
+  background: #f5f4ef !important;
+  border-color: #cbd6d1 !important;
+}
+html[data-portfolio-theme="light"] .site-nav a,
+html[data-portfolio-theme="light"] .project-nav a,
+html[data-portfolio-theme="light"] .nav-label,
+html[data-portfolio-theme="light"] .sidebar-social {
+  color: #5b6b65 !important;
+}
+html[data-portfolio-theme="light"] .site-nav a[aria-current],
+html[data-portfolio-theme="light"] .item-list a[aria-current],
+html[data-portfolio-theme="light"] .project-nav a[aria-current],
+html[data-portfolio-theme="light"] .site-nav a:hover,
+html[data-portfolio-theme="light"] .project-nav a:hover,
+html[data-portfolio-theme="light"] .sidebar-social a[href]:hover {
+  color: #0f6048 !important;
+}
+html[data-portfolio-theme="light"] .sidebar-social {
+  border-color: #cbd6d1 !important;
+}
+html[data-portfolio-theme="light"] .text-view > p:not(.section-label),
+html[data-portfolio-theme="light"] .reading-card p,
+html[data-portfolio-theme="light"] .pipeline-steps p,
+html[data-portfolio-theme="light"] .pipeline-diagram figcaption,
+html[data-portfolio-theme="light"] .logging-rail p {
+  color: #43544e !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+html[data-portfolio-theme="light"] .diagram-head > span,
+html[data-portfolio-theme="light"] .card-label,
+html[data-portfolio-theme="light"] .tag,
+html[data-portfolio-theme="light"] .article-tabs label,
+html[data-portfolio-theme="light"] .doc-intro > span,
+html[data-portfolio-theme="light"] .doc-heading > b,
+html[data-portfolio-theme="light"] .workflow-box > strong,
+html[data-portfolio-theme="light"] .diagram-title,
+html[data-portfolio-theme="light"] .diagram-label,
+html[data-portfolio-theme="light"] .boundary-label,
+html[data-portfolio-theme="light"] .service-badge,
+html[data-portfolio-theme="light"] .arch-cluster-label {
+  color: #0f6048 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-weight: 600 !important;
+  letter-spacing: .09em !important;
+  text-transform: uppercase !important;
+}
+html[data-portfolio-theme="light"] .notice,
+html[data-portfolio-theme="light"] .card,
+html[data-portfolio-theme="light"] .route,
+html[data-portfolio-theme="light"] .tool-card,
+html[data-portfolio-theme="light"] .bedrock-card,
+html[data-portfolio-theme="light"] .doc-card,
+html[data-portfolio-theme="light"] .diagram-node,
+html[data-portfolio-theme="light"] .arch-service,
+html[data-portfolio-theme="light"] .arch-subnet,
+html[data-portfolio-theme="light"] .arch-node,
+html[data-portfolio-theme="light"] .arch-pod,
+html[data-portfolio-theme="light"] .arch-container,
+html[data-portfolio-theme="light"] .reading-card,
+html[data-portfolio-theme="light"] .pipeline-steps li,
+html[data-portfolio-theme="light"] .pipeline-notes .card,
+html[data-portfolio-theme="light"] .prompt-card,
+html[data-portfolio-theme="light"] .plan-box,
+html[data-portfolio-theme="light"] .plan-flow li,
+html[data-portfolio-theme="light"] .test-fix-loop,
+html[data-portfolio-theme="light"] .closeout-flow > span,
+html[data-portfolio-theme="light"] .workflow-box,
+html[data-portfolio-theme="light"] .workflow-tiles > div,
+html[data-portfolio-theme="light"] .tool-loop,
+html[data-portfolio-theme="light"] .remote-flow > span,
+html[data-portfolio-theme="light"] .remote-flow > strong,
+html[data-portfolio-theme="light"] .logging-rail,
+html[data-portfolio-theme="light"] .custom-tools,
+html[data-portfolio-theme="light"] .collaboration,
+html[data-portfolio-theme="light"] .delivered {
+  background: #fbfaf7 !important;
+  border-color: #cbd6d1 !important;
+}
+html[data-portfolio-theme="light"] .diagram,
+html[data-portfolio-theme="light"] .system-diagram,
+html[data-portfolio-theme="light"] .aws-landscape,
+html[data-portfolio-theme="light"] .mermaid-scroll,
+html[data-portfolio-theme="light"] figure .scroll,
+html[data-portfolio-theme="light"] .pipeline-diagram,
+html[data-portfolio-theme="light"] .pipeline-section {
+  background: #f5f4ef !important;
+  border-color: #cbd6d1 !important;
+}
+html[data-portfolio-theme="light"] .article-tabs { border-color: #cbd6d1 !important; }
+html[data-portfolio-theme="light"] .article-tabs label { color: #5b6b65 !important; }
+html[data-portfolio-theme="light"] .article-tabs label:hover,
+html[data-portfolio-theme="light"] .article-tabs input:checked + label { color: #0f6048 !important; border-bottom-color: #0f6048 !important; }
+html[data-portfolio-theme="light"] .doc-intro { border-color: #cbd6d1 !important; }
+html[data-portfolio-theme="light"] .doc-intro h2,
+html[data-portfolio-theme="light"] .doc-heading h3,
+html[data-portfolio-theme="light"] .doc-card h3 { color: #214b3d !important; }
+html[data-portfolio-theme="light"] .doc-card > small { color: #5b6b65 !important; }
+html[data-portfolio-theme="light"] .implementation-list,
+html[data-portfolio-theme="light"] .code-caption { color: #43544e !important; }
+html[data-portfolio-theme="light"] .validation-strip { background: #edf4ef !important; border-color: #b7c8bf !important; color: #355247 !important; }
+html[data-portfolio-theme="light"] .validation-strip i { color: #17624c !important; }
+html[data-portfolio-theme="light"] .diagram img,
+html[data-portfolio-theme="light"] .mermaid-scroll img {
+  background: transparent !important;
+}
+html[data-portfolio-theme="light"] .mermaid-figure .mermaid-dark { display: none !important; }
+html[data-portfolio-theme="light"] .mermaid-figure .mermaid-light { display: block !important; }
+html[data-portfolio-theme="light"] pre,
+html[data-portfolio-theme="light"] .scroll {
+  background: #f0f3ef !important;
+  border-color: #cbd6d1 !important;
+  color: #26322f !important;
+}
+html[data-portfolio-theme="light"] pre code { background: transparent !important; }
+html[data-portfolio-theme="light"] th { background: #e7eee9 !important; }
+html[data-portfolio-theme="light"] footer { border-color: #cbd6d1 !important; color: #5c6a66 !important; }
+html[data-portfolio-theme="light"] .project-status,
+html[data-portfolio-theme="light"] .plan-box,
+html[data-portfolio-theme="light"] .workflow-box,
+html[data-portfolio-theme="light"] .test-fix-loop,
+html[data-portfolio-theme="light"] .prompt-card,
+html[data-portfolio-theme="light"] .bedrock-card {
+  border-color: #cbd6d1 !important;
+}
+html[data-portfolio-theme="light"] .diagram-title,
+html[data-portfolio-theme="light"] .diagram-label,
+html[data-portfolio-theme="light"] .boundary-label,
+html[data-portfolio-theme="light"] .service-badge,
+html[data-portfolio-theme="light"] .arch-cluster-label { color: #0f6048 !important; }
+html[data-portfolio-theme="light"] .diagram-divider,
+html[data-portfolio-theme="light"] .lane,
+html[data-portfolio-theme="light"] h2 { border-color: #cbd6d1 !important; }
+html[data-portfolio-theme="light"] .card h2,
+html[data-portfolio-theme="light"] .route h2,
+html[data-portfolio-theme="light"] .tool-card h3,
+html[data-portfolio-theme="light"] .bedrock-card h3,
+html[data-portfolio-theme="light"] .collaboration h3,
+html[data-portfolio-theme="light"] .plan-flow strong,
+html[data-portfolio-theme="light"] .workflow-tiles b,
+html[data-portfolio-theme="light"] .cycle-step strong {
+  color: #214b3d !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  text-transform: none !important;
+}
+html[data-portfolio-theme="light"] .notice > strong,
+html[data-portfolio-theme="light"] .mermaid-scroll th,
+html[data-portfolio-theme="light"] .plan-box > strong,
+html[data-portfolio-theme="light"] .plan-flow li strong,
+html[data-portfolio-theme="light"] .route.complex h2 {
+  color: #26322f !important;
+}
+html[data-portfolio-theme="light"] .notice p,
+html[data-portfolio-theme="light"] .mermaid-scroll td,
+html[data-portfolio-theme="light"] .plan-flow li > span {
+  color: #43544e !important;
+}
+html[data-portfolio-theme="light"] .mermaid-scroll th { background: #e7eee9 !important; border-color: #cbd6d1 !important; }
+html[data-portfolio-theme="light"] .mermaid-scroll td { border-color: #d2dcd7 !important; }
+html[data-portfolio-theme="light"] .mermaid-scroll tbody tr:hover td { background: rgba(23, 98, 76, .05) !important; }
+html[data-portfolio-theme="light"] .diagram-node strong,
+html[data-portfolio-theme="light"] .diagram-node span {
+  color: #26322f !important;
+  text-transform: none !important;
+}
+html[data-portfolio-theme="light"] .connector,
+html[data-portfolio-theme="light"] .flow-caption,
+html[data-portfolio-theme="light"] .mini-flow,
+html[data-portfolio-theme="light"] .diagram-transition,
+html[data-portfolio-theme="light"] .diagram-footer,
+html[data-portfolio-theme="light"] .path-connector,
+html[data-portfolio-theme="light"] .plan-intro {
+  color: #5b6b65 !important;
+}
+html[data-portfolio-theme="light"] .outcomes span {
+  background: #fbfaf7 !important;
+  border-color: #b7c8bf !important;
+  color: #17624c !important;
+}
+html[data-portfolio-theme="light"] .outcomes span:nth-child(2) {
+  border-color: #c7aaa5 !important;
+  color: #8b3f36 !important;
+}
+html[data-portfolio-theme="light"] .outcomes span:nth-child(3) {
+  border-color: #cdbb98 !important;
+  color: #80551c !important;
+}
+
+/* Shared light surfaces for tables, inline code and syntax-highlighted samples. */
+html[data-portfolio-theme="light"] table,
+html[data-portfolio-theme="light"] tbody,
+html[data-portfolio-theme="light"] tr,
+html[data-portfolio-theme="light"] td { background: #fbfaf7 !important; border-color: #cbd6d1 !important; }
+html[data-portfolio-theme="light"] tbody tr:nth-child(even) td { background: #f0f3ef !important; }
+html[data-portfolio-theme="light"] code { background: #e9efe9 !important; color: #264c3e !important; border-color: #cbd6d1 !important; }
+html[data-portfolio-theme="light"] pre code { background: transparent !important; color: #26322f !important; }
+html[data-portfolio-theme="light"] pre::before { color: #53625d !important; }
+html[data-portfolio-theme="light"] .token.comment { color: #596960 !important; }
+html[data-portfolio-theme="light"] .token.key { color: #245b83 !important; }
+html[data-portfolio-theme="light"] .token.string { color: #306031 !important; }
+html[data-portfolio-theme="light"] .token.number { color: #80511f !important; }
+html[data-portfolio-theme="light"] .token.keyword { color: #6e428c !important; }
+
+
+/* Matte code panels within an otherwise light-only reader. */
+html[data-portfolio-theme="light"] pre,
+html[data-portfolio-theme="light"] .scroll:has(> pre) { background: #1b2023 !important; color: #dbe7e2 !important; border-color: #37423f !important; }
+html[data-portfolio-theme="light"] pre code { background: transparent !important; color: #dbe7e2 !important; border: 0 !important; }
+html[data-portfolio-theme="light"] pre::before { color: #a3b4ad !important; }
+html[data-portfolio-theme="light"] pre .token.comment { color: #a3b4ad !important; }
+html[data-portfolio-theme="light"] pre .token.key { color: #92ccec !important; }
+html[data-portfolio-theme="light"] pre .token.string { color: #b8dda0 !important; }
+html[data-portfolio-theme="light"] pre .token.number { color: #e9bb87 !important; }
+html[data-portfolio-theme="light"] pre .token.keyword { color: #c9b2ef !important; }
+html[data-portfolio-theme="light"] .repository-link { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; border: 1px solid #cbd6d1; border-radius: 4px; background: #fbfaf7; color: #17624c !important; font: 700 11px/1.9 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+html[data-portfolio-theme="light"] .repository-link:hover { background: #e9efe9; border-color: #17624c; }
+
+
+/* Article-local overrides keep the other portfolio documents unchanged. */
+html[data-portfolio-theme="light"] { --article-accent: #17624c; }
+html[data-portfolio-theme="light"] main h1 { color: var(--article-accent) !important; font-size: 21px; line-height: 1.4; letter-spacing: .025em; text-transform: uppercase; margin: 0 0 10px; }
+main header .lede { margin-bottom: 0; }
+main > section:first-of-type h2 { margin-top: 20px; }
+main h2 { font-size: 15px; margin: 28px 0 12px; padding-top: 12px; }
+main h3 { font-size: 13px; }
+main > section { display: flow-root; }
+main > section > :last-child { margin-bottom: 0; }
+html[data-portfolio-theme="light"] main .notice { background: #e7efe9 !important; border-color: var(--article-accent) !important; border-left-width: 4px; padding: 16px 20px; }
+html[data-portfolio-theme="light"] main .notice > strong { color: var(--article-accent) !important; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+main .notice p, main figcaption, main .diagram-node span { font-size: 13px; }
+main .diagram-flow { gap: 36px; counter-reset: stage; }
+html[data-portfolio-theme="light"] main .diagram-node { background: #edf3ee !important; border-color: #a9c3b5 !important; border-top: 3px solid var(--article-accent) !important; }
+main .diagram-node::before { counter-increment: stage; content: "0" counter(stage); display: block; color: var(--article-accent); font: 700 12px/1.8 ui-monospace, monospace; margin-bottom: 6px; }
+main .diagram-node strong { font: 600 13px/1.6 system-ui, sans-serif; }
+main .diagram-flow > .diagram-node:not(:last-child)::after { right: -32px; width: 28px; font-size: 26px; font-weight: 700; color: var(--article-accent); }
+main .diagram-note { border-color: #cbd6d1; }
+main table { min-width: 580px; font-size: 13px; }
+main caption { text-align: left; padding: 12px 16px; font-weight: 600; background: #e7eee9; }
+html[data-portfolio-theme="light"] main table th,
+html[data-portfolio-theme="light"] main table td { padding: 12px 16px; border: 0; border-bottom: 1px solid #cbd6d1 !important; }
+main .usage-table th:nth-child(2), main .usage-table td:nth-child(2) { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+html[data-portfolio-theme="light"] main tbody th { background: #fbfaf7 !important; font-weight: 600; }
+html[data-portfolio-theme="light"] main tbody tr:nth-child(even) th { background: #f0f3ef !important; }
+html[data-portfolio-theme="light"] main .usage-table tbody tr:last-child > * { background: #e7eee9 !important; border-top: 2px solid var(--article-accent) !important; }
+.explainer, .token-chart, .metric-card { padding: 18px 20px; border: 1px solid #b9ccc1; border-radius: 6px; background: #fbfaf7; }
+main .explainer h2, main .token-chart h3, main .metric-card h3 { margin: 0 0 10px; padding: 0; border: 0; }
+.explainer { margin: 24px 0 0; border-left: 4px solid var(--article-accent); }
+.explainer p:last-child, .metric-card p:last-child { margin-bottom: 0; }
+.composition-bar { display: flex; height: 30px; overflow: hidden; border-radius: 4px; margin: 16px 0; background: #edf3ee; }
+.composition-bar span:nth-child(1) { width: 97.717544%; background: #17624c; }
+.composition-bar span:nth-child(2) { width: 1.898788%; background: #8bb49e; }
+.composition-bar span:nth-child(3) { width: .383668%; background: #ad7132; }
+.chart-key { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; list-style: none; padding: 0; }
+.chart-key li { border-top: 4px solid #17624c; padding-top: 8px; }
+.chart-key li:nth-child(2) { border-color: #8bb49e; }
+.chart-key li:nth-child(3) { border-color: #ad7132; }
+.chart-key strong, .chart-key span { display: block; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.metric-value { display: block; color: var(--article-accent); font-size: 23px; font-weight: 650; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.mechanism-example { padding: 14px 18px; background: #e7eee9; border-radius: 4px; }
+@media (max-width: 650px) {
+  html[data-portfolio-theme="light"] main h1 { font-size: 19px; }
+  main h2 { font-size: 14px; margin-top: 24px; padding-top: 10px; }
+  main h3 { margin-top: 20px; }
+  .explainer { margin-top: 20px; }
+  main .diagram-flow { gap: 36px; }
+  main .diagram-flow > .diagram-node:not(:last-child)::after { right: calc(50% - 14px); bottom: -32px; height: 28px; line-height: 28px; }
+  .metric-grid, .chart-key { grid-template-columns: 1fr; }
+  .chart-key { gap: 6px; }
+}
+
+main .report-table { table-layout: fixed; width: 100%; }
+main .report-table th, main .report-table td { text-align: left; white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+main .architecture { margin: 20px 0; padding: 20px; border: 1px solid #a9c3b5; border-radius: 6px; background: #edf3ee; }
+main details { margin: 18px 0; padding: 16px; border: 1px solid #b9ccc1; border-radius: 6px; }
+main summary { cursor: pointer; font-weight: 600; color: #17624c; }
+main .architecture-mermaid { overflow-x: auto; }
+main .architecture-mermaid > svg { display: block; width: 100%; min-width: 760px; height: auto; margin: 0 auto; }
+/* Match Mermaid's render-time metrics inside its fixed-size label boxes. */
+html[data-portfolio-theme="light"] main .architecture-mermaid foreignObject div,
+html[data-portfolio-theme="light"] main .architecture-mermaid foreignObject span,
+html[data-portfolio-theme="light"] main .architecture-mermaid foreignObject p {
+  font-family: Arial, sans-serif !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+html[data-portfolio-theme="light"] main .architecture-mermaid foreignObject p {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+}
+
+main .architecture-step {padding:16px 20px;border:1px solid #a9c3b5;border-left:4px solid #17624c;border-radius:4px;background:#fbfaf7;text-align:center;} main .architecture-step strong, main .architecture-step span {display:block;} main .architecture-step span {margin-top:5px;} main .diagram-parallel .diagram-node::before {content:none;} main .diagram-transition {color:#17624c!important;font-size:23px;margin:10px 0;} main .metric-card h3 {font-size:12px;} main .diagram-note {max-width:none;} @media print {main {max-width:none;} .metric-card,.diagram-node {break-inside:avoid;}}
+
+/* Mermaid exports are isolated images so reader typography cannot resize labels. */
+main .mermaid-diagram {overflow-x:auto;max-width:100%;padding:8px;background:#fbfaf7;border-radius:4px;}
+main .mermaid-diagram img {display:block;width:100%;min-width:900px;height:auto;margin:auto;}
+main .architecture {padding:16px;background:#edf3ee;}
+main .architecture figcaption {margin-top:12px;}
+main .explanation {padding-left:24px;}
+main .explanation li {padding-left:5px;margin:12px 0;}
+main .explanation li::marker {color:#17624c;font-weight:700;}
+main .source-note {font-size:12px;border-left:3px solid #a9c3b5;padding-left:14px;}
+main h3 {margin-top:24px;}
+@media(max-width:650px){main .architecture {margin-inline:0;padding:10px;}main .mermaid-diagram img{min-width:900px;}}
+
+
+/* Static syntax highlighting; code text remains selectable and copyable. */
+html[data-portfolio-theme="light"] main pre{background:#18232d!important;color:#e6edf3!important;padding:16px 20px;}
+html[data-portfolio-theme="light"] main pre code{background:transparent!important;color:#e6edf3!important;font-size:12px;line-height:1.8;}
+main pre::before{color:#9eb3c5;}
+main .hljs-keyword,main .hljs-literal,main .hljs-selector-tag{color:#ff9db0!important;}
+main .hljs-string,main .hljs-attr,main .hljs-template-variable{color:#a5d6ff!important;}
+main .hljs-number,main .hljs-symbol{color:#e9b97d!important;}
+main .hljs-comment,main .hljs-meta{color:#a7b7c7!important;}
+main .hljs-title,main .hljs-built_in,main .hljs-type{color:#d2b4ff!important;}
+main .hljs-variable,main .hljs-params{color:#e6edf3!important;}
+
+/* Compact editorial title and deployment figure. */
+html[data-portfolio-theme="light"] main h1 {font-size:19px;line-height:1.45;letter-spacing:normal;text-transform:none;}
+main .mermaid-diagram img[data-diagram="deployment"] {width:100%;max-width:640px;min-width:0;margin-inline:auto;}
+@media(max-width:650px){html[data-portfolio-theme="light"] main h1{font-size:17px;}main .mermaid-diagram img[data-diagram="deployment"]{min-width:520px;}}
+
+main .breadcrumb{font:11px/1.8 ui-monospace,monospace;color:#5b6b65;margin:0 0 12px;} main .mermaid-diagram img{min-width:680px;} main .source-path{overflow-wrap:anywhere;} @media print{main .mermaid-diagram img{min-width:0;}}
+
+/* Guide rebuild: compact static figures and a responsive six-step request flow. */
+main { min-width: 0; overflow-wrap: anywhere; }
+html[data-portfolio-theme="light"] main > header > h1 { margin-bottom: 32px; }
+main .mermaid-diagram { margin: 20px auto; padding: 8px; overflow: visible; background: transparent; }
+main .mermaid-diagram.architecture { max-width: 560px; border: 0; }
+main .mermaid-diagram.memory { max-width: 450px; overflow-x: auto; }
+main .mermaid-diagram.memory img { min-width: 340px; }
+main .mermaid-diagram img { display: block; width: 100%; max-width: 100%; min-width: 0; height: auto; }
+main .mermaid-diagram figcaption { margin-top: 12px; font-size: 12px; }
+main .request-flow { max-width: 780px; margin: 20px auto; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; }
+main .request-flow li { position: relative; min-width: 0; margin: 0; padding: 16px 10px; border: 1px solid #a9c3b5; border-radius: 4px; background: #fbfaf7; text-align: center; }
+main .request-flow li:nth-child(4) { grid-column: 3; grid-row: 2; }
+main .request-flow li:nth-child(5) { grid-column: 2; grid-row: 2; }
+main .request-flow li:nth-child(6) { grid-column: 1; grid-row: 2; }
+main .request-flow li:not(:last-child)::after { content: '→'; position: absolute; left: 100%; top: calc(50% - 16px); width: 36px; height: 32px; color: #17624c; text-align: center; font-size: 23px; line-height: 32px; }
+main .request-flow li:nth-child(3)::after { content: '↓'; left: calc(50% - 18px); top: 100%; height: 36px; line-height: 36px; }
+main .request-flow li:nth-child(4)::after, main .request-flow li:nth-child(5)::after { content: '←'; left: auto; right: 100%; }
+main .request-flow strong { font-size: 12px; }
+main .implementation-scroll { max-height: 574px; overflow: auto; scrollbar-gutter: stable; }
+main .implementation-scroll table { width: 1000px; min-width: 1000px; }
+main .implementation-scroll th, main .implementation-scroll td { padding: 10px 12px; }
+main .implementation-scroll thead { position: sticky; top: 0; z-index: 1; }
+main .implementation-scroll th { background: #e7eee9 !important; }
+main .scroll { min-width: 0; }
+main a:focus-visible, main [tabindex]:focus-visible { outline-color: #17624c; }
+.repository-links { display: flex; flex-wrap: wrap; gap: 8px; }
+html[data-portfolio-theme="light"] .repository-links .repository-link { gap: 8px; max-width: 100%; text-transform: none; letter-spacing: normal; text-align: left; }
+.repository-links .repository-link svg { flex: 0 0 18px; }
+.repository-links .repository-link span { min-width: 0; overflow-wrap: anywhere; }
+.repository-links .repository-link:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+html[data-portfolio-theme="light"] main .repository-note { margin: 12px 0 0; font-size: 11px; line-height: 1.8; color: #53625d !important; }
+.repository-divider { margin: 20px 0 24px; border: 0; border-top: 1px solid #cbd6d1; }
+@media (max-width: 650px) {
+  main .mermaid-diagram img { min-width: 0; }
+  main .mermaid-diagram.memory img { min-width: 340px; }
+  main .request-flow { grid-template-columns: 1fr; gap: 32px; max-width: 340px; }
+  main .request-flow li:nth-child(n) { grid-column: auto; grid-row: auto; padding: 12px 14px; }
+  main .request-flow li:not(:last-child)::after { content: '↓'; left: calc(50% - 18px); right: auto; top: 100%; height: 32px; line-height: 32px; }
+}
+
+/* Article diagrams: compact, centered, with internal scrolling on small screens. */
+main .compact-diagram{width:100%;max-width:720px;margin:22px auto;}
+</style></head><body><main><header><h1>Codex with a quota fallback for personal use: a tiny hybrid agent harness</h1><nav class="repository-links" aria-label="Project repository"><a class="repository-link" data-repository="" href="https://github.com/gopalcb/deep-agent-harness-with-codex" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="currentColor"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.838 1.237 1.838 1.237 1.07 1.835 2.807 1.305 3.492.998.108-.776.418-1.305.762-1.605-2.665-.303-5.467-1.333-5.467-5.93 0-1.31.468-2.38 1.235-3.22-.123-.303-.535-1.523.117-3.176 0 0 1.008-.323 3.301 1.23A11.5 11.5 0 0112 6.3c1.02.005 2.047.138 3.005.404 2.291-1.553 3.297-1.23 3.297-1.23.654 1.653.242 2.873.12 3.176.77.84 1.232 1.91 1.232 3.22 0 4.61-2.807 5.624-5.48 5.921.43.372.814 1.102.814 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 22.296 24 17.797 24 12.5 24 5.87 18.627.5 12 .5z"></path></svg><span>deep-agent-harness-with-codex</span></a></nav></header>
+<h2 id="the-use-case">The use case</h2>
+<ul>
+<li>Use Codex for everyday coding tasks in personal projects.</li>
+<li>If its usage quota is exhausted, explicitly enable an existing Bedrock agent or
+an already-running local Ollama model as a continuity option.</li>
+<li>Share only selected files, accept bounded change proposals and run your own
+checks. Failed checks permit one repair.</li>
+<li>Review the result yourself. This is a small personal lab, not a production
+multi-user service or a seamless continuation of Codex’s conversation.</li>
+</ul>
+<h2 id="how-a-request-moves">How a request moves</h2>
+<p>The prompt API tries Codex first and waits for its process to finish. A normal
+response returns directly. Only a recognized usage-quota error can activate the
+opt-in fallback; authentication, network and ordinary execution errors remain
+errors. Demo mode never activates fallback.</p>
+<figure class="compact-diagram"><div class="scroll" tabindex="0" role="region" aria-label="The prompt API runs Codex first; only confirmed quota exhaustion and enabled fallback activate the configured Bedrock or Ollama workflow. Scroll horizontally on narrow screens."><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 700" role="img" aria-labelledby="route-title route-desc" style="display:block;width:100%;min-width:640px;height:auto"><title id="route-title">Codex first, quota-gated fallback</title><desc id="route-desc">The authenticated prompt API runs Codex. Success returns its response; ordinary errors remain errors. Only confirmed quota exhaustion and enabled fallback lead to the configured Bedrock or Ollama adapter and the LangGraph workflow.</desc><defs><pattern id="route-grid" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dbe5ed"></circle></pattern><marker id="route-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c64d3b"></path></marker></defs><g font-family="'Trebuchet MS', 'Segoe UI', sans-serif"><rect width="1500" height="700" rx="24" fill="#f4f8fb"></rect><rect width="1500" height="700" rx="24" fill="url(#route-grid)"></rect><text x="42" y="46" font-size="18" fill="#087f83" font-weight="700" letter-spacing="2">CURRENT LAB / REQUEST ROUTING</text><text x="42" y="99" font-size="43" fill="#172f46" font-weight="700">Codex first. A deliberate fallback.</text><text x="42" y="137" font-size="22" fill="#496477" font-weight="400">Provider switching requires a confirmed Codex usage-quota error and explicit operator configuration.</text><rect x="42" y="211" width="285" height="240" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M60 211H309q18 0 18 18v38H42V229q0-18 18-18" fill="#087f83"></path><text x="60" y="247" font-size="22" fill="white" font-weight="700">Prompt API</text><g transform="translate(64 287)" fill="none" stroke="#087f83" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="26" width="40" height="32" rx="5"></rect><path d="M21 26V15c0-16 22-16 22 0v11M32 38v9"></path></g><text x="62" y="377" font-size="19" fill="#496477" font-weight="400">Authenticate caller</text><text x="62" y="405" font-size="19" fill="#496477" font-weight="400">POST /api/prompt</text><rect x="389" y="211" width="285" height="240" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M407 211H656q18 0 18 18v38H389V229q0-18 18-18" fill="#087f83"></path><text x="407" y="247" font-size="22" fill="white" font-weight="700">Codex CLI</text><g transform="translate(411 287)" fill="none" stroke="#087f83" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="56" height="46" rx="7"></rect><path d="M14 21l10 10-10 10M32 41h17"></path></g><text x="409" y="377" font-size="19" fill="#496477" font-weight="400">Run codex exec</text><text x="409" y="405" font-size="19" fill="#496477" font-weight="400">Wait for process exit</text><rect x="737" y="211" width="315" height="240" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M755 211H1034q18 0 18 18v38H737V229q0-18 18-18" fill="#7050ad"></path><text x="755" y="247" font-size="22" fill="white" font-weight="700">Quota gate</text><g transform="translate(759 287)" fill="none" stroke="#7050ad" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="26" cy="25" r="19"></circle><path d="M40 40l18 18M17 25h18M26 16v18"></path></g><text x="757" y="377" font-size="19" fill="#496477" font-weight="400">Confirmed quota error?</text><text x="757" y="405" font-size="19" fill="#496477" font-weight="400">Fallback enabled?</text><rect x="1114" y="211" width="344" height="240" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M1132 211H1440q18 0 18 18v38H1114V229q0-18 18-18" fill="#286ba1"></path><text x="1132" y="247" font-size="22" fill="white" font-weight="700">Fallback graph</text><g transform="translate(1136 287)" fill="none" stroke="#286ba1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="16" width="48" height="37" rx="12"></rect><path d="M32 16V6M26 6h12M20 53v7M44 53v7M2 29v11M62 29v11M22 41h20"></path><circle cx="22" cy="30" r="2"></circle><circle cx="42" cy="30" r="2"></circle></g><text x="1134" y="377" font-size="19" fill="#496477" font-weight="400">Bedrock agent or Ollama</text><text x="1134" y="405" font-size="19" fill="#496477" font-weight="400">Plan → implement → validate</text><path d="M331 330H378" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#route-arrow)"></path><path d="M678 330H726" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#route-arrow)"></path><path d="M1056 330H1103" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#route-arrow)"></path><path d="M531 452V522H365" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#route-arrow)"></path><text x="59" y="529" font-size="22" fill="#087f83" font-weight="700">Success → Codex response</text><path d="M894 452V575H580" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#route-arrow)"></path><text x="59" y="582" font-size="22" fill="#c64d3b" font-weight="700">Other failures → return an error</text><text x="1108" y="495" font-size="17" fill="#496477" font-weight="400">Opt-in provider; no automatic downloads</text><rect x="42" y="620" width="1416" height="46" rx="12" fill="#e9edf5"></rect><text x="62" y="650" font-size="20" fill="#172f46" font-weight="400">Use one active request in an isolated workspace. Live provider calls remain unverified.</text></g></svg></div><figcaption>Figure 1. <a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/guide/diagrams/codex-fallback-routing.svg" target="_blank" rel="noopener noreferrer">Open full-size diagram on GitHub</a></figcaption></figure>
+
+<h2 id="keep-the-alternate-workflow-small">Keep the alternate workflow small</h2>
+<p>The same LangGraph sequence serves either fallback provider:</p>
+<ol>
+<li><strong>Plan:</strong> read only the files selected in <code>LAB_EDIT_FILES</code> and save the plan.</li>
+<li><strong>Implement:</strong> accept JSON file replacements, reject unselected paths and apply
+allowed proposals. The model does not choose shell commands.</li>
+<li><strong>Validate:</strong> run operator-configured argv commands independently of the
+model’s claim. Failed checks allow one repair, with two implementation attempts
+at most.</li>
+<li><strong>Record:</strong> retain the plan, changed files, attempts and check results in a
+private task checkpoint outside the workspace.</li>
+</ol>
+<figure class="compact-diagram"><div class="scroll" tabindex="0" role="region" aria-label="The fallback plans, applies allowed file replacements and validates with configured commands; failed checks allow one repair, with at most two implementation attempts. Scroll horizontally on narrow screens."><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 740" role="img" aria-labelledby="workflow-title workflow-desc" style="display:block;width:100%;min-width:640px;height:auto"><title id="workflow-title">Bounded LangGraph execution</title><desc id="workflow-desc">Plan reads selected files. Implement accepts JSON replacements only for allowed paths. Validate runs operator-configured commands. Failed checks permit one repair, with two implementation attempts maximum. Missing or failed checks produce needs_validation; all configured checks passing produces validated. Private checkpoints record each stage.</desc><defs><pattern id="workflow-grid" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dbe5ed"></circle></pattern><marker id="workflow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c64d3b"></path></marker></defs><g font-family="'Trebuchet MS', 'Segoe UI', sans-serif"><rect width="1500" height="740" rx="24" fill="#f4f8fb"></rect><rect width="1500" height="740" rx="24" fill="url(#workflow-grid)"></rect><text x="42" y="46" font-size="18" fill="#087f83" font-weight="700" letter-spacing="2">CURRENT LAB / FALLBACK EXECUTION</text><text x="42" y="99" font-size="43" fill="#172f46" font-weight="700">Plan, implement, verify—with a limit.</text><text x="42" y="137" font-size="22" fill="#496477" font-weight="400">The model proposes changes. Local code owns the file boundaries and check commands.</text><rect x="42" y="210" width="300" height="260" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M60 210H324q18 0 18 18v38H42V228q0-18 18-18" fill="#087f83"></path><text x="60" y="246" font-size="22" fill="white" font-weight="700">Plan</text><g transform="translate(64 286)" fill="none" stroke="#087f83" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h25l12 13v43H15zM40 4v14h12M23 30h21M23 39h21M23 48h15"></path></g><text x="62" y="376" font-size="19" fill="#496477" font-weight="400">Read selected source</text><text x="62" y="404" font-size="19" fill="#496477" font-weight="400">Save the plan</text><text x="62" y="432" font-size="19" fill="#496477" font-weight="400">LAB_EDIT_FILES</text><rect x="414" y="210" width="300" height="260" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M432 210H696q18 0 18 18v38H414V228q0-18 18-18" fill="#286ba1"></path><text x="432" y="246" font-size="22" fill="white" font-weight="700">Implement</text><g transform="translate(436 286)" fill="none" stroke="#286ba1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="56" height="46" rx="7"></rect><path d="M14 21l10 10-10 10M32 41h17"></path></g><text x="434" y="376" font-size="19" fill="#496477" font-weight="400">JSON file replacements</text><text x="434" y="404" font-size="19" fill="#496477" font-weight="400">Reject unselected paths</text><text x="434" y="432" font-size="19" fill="#496477" font-weight="400">Apply allowed proposals</text><rect x="786" y="210" width="300" height="260" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M804 210H1068q18 0 18 18v38H786V228q0-18 18-18" fill="#7050ad"></path><text x="804" y="246" font-size="22" fill="white" font-weight="700">Validate</text><g transform="translate(808 286)" fill="none" stroke="#7050ad" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26"></circle><path d="M18 32l10 10 19-23"></path></g><text x="806" y="376" font-size="19" fill="#496477" font-weight="400">Run configured argv</text><text x="806" y="404" font-size="19" fill="#496477" font-weight="400">Record bounded output</text><text x="806" y="432" font-size="19" fill="#496477" font-weight="400">Model cannot pick checks</text><rect x="1158" y="210" width="300" height="260" rx="18" fill="white" stroke="#cedde7" stroke-width="2"></rect><path d="M1176 210H1440q18 0 18 18v38H1158V228q0-18 18-18" fill="#087f83"></path><text x="1176" y="246" font-size="22" fill="white" font-weight="700">Record outcome</text><g transform="translate(1180 286)" fill="none" stroke="#087f83" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="32" cy="12" rx="24" ry="9"></ellipse><path d="M8 12v38c0 13 48 13 48 0V12M8 30c0 13 48 13 48 0"></path></g><text x="1178" y="376" font-size="19" fill="#496477" font-weight="400">validated: checks pass</text><text x="1178" y="404" font-size="19" fill="#496477" font-weight="400">needs_validation: absent</text><text x="1178" y="432" font-size="19" fill="#496477" font-weight="400">or failed checks</text><path d="M347 337H403" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#workflow-arrow)"></path><path d="M719 337H775" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#workflow-arrow)"></path><path d="M1091 337H1147" fill="none" stroke="#c64d3b" stroke-width="3" marker-end="url(#workflow-arrow)"></path><path d="M936 473V538H564V476" fill="none" stroke="#7050ad" stroke-width="3" marker-end="url(#workflow-arrow)"></path><text x="550" y="573" font-size="22" fill="#7050ad" font-weight="700">Failed checks → one repair; at most two implementation attempts</text><rect x="42" y="623" width="1416" height="76" rx="14" fill="#e3f2f2"></rect><text x="62" y="654" font-size="21" fill="#087f83" font-weight="700">Private stage checkpoints preserve the plan, changed files, attempts and check results.</text><text x="62" y="683" font-size="20" fill="#496477" font-weight="400">Task records do not provide automatic crash resume or cross-task knowledge memory.</text></g></svg></div><figcaption>Figure 2. <a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/guide/diagrams/fallback-workflow.svg" target="_blank" rel="noopener noreferrer">Open full-size diagram on GitHub</a></figcaption></figure>
+
+<p>Passing every configured check produces <code>validated</code>. Missing checks or checks
+still failing at the attempt limit produce <code>needs_validation</code>. Passing checks
+shows that those commands passed; review whether they cover the actual task.</p>
+<h2 id="current-scope">Current scope</h2>
+<p>Use one active request in an isolated workspace. The file allowlist is not an
+operating-system sandbox. Selected source and bounded check output are shared
+with the configured provider, so select files appropriate for that destination.</p>
+<p>Checkpoints are task records. Automatic crash resume, cross-task knowledge memory
+and transfer of an interrupted Codex thread are not implemented. The optional
+standalone prompt classifier is separate from this Codex-first path.</p>
+<p>These diagrams describe the current local source. Live Bedrock and Ollama calls
+remain unverified; this documentation update does not establish end-to-end
+provider execution.</p>
+<h2 id="code-files-and-installation-references">Code, files and installation references</h2>
+<p>Browse the <a href="https://github.com/gopalcb/deep-agent-harness-with-codex">GitHub repository</a>
+for the code and configuration below.</p>
+<div class="scroll" tabindex="0" role="region" aria-label="Code and file references; scroll horizontally on narrow screens"><table>
+<thead>
+<tr>
+<th scope="col">File</th>
+<th scope="col">Responsibility</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/codex/api.py"><code>codex/api.py</code></a></td>
+<td>Prompt API, live-request authentication and Codex CLI execution</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/codex/fallback.py"><code>codex/fallback.py</code></a></td>
+<td>Quota recognition, provider configuration and private checkpoints</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/deep-agents/workflow.py"><code>deep-agents/workflow.py</code></a></td>
+<td>Plan, implement, validate, selected-file writes and one repair</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/deep-agents/routing.py"><code>deep-agents/routing.py</code></a>, <a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/deep-agents/api.py"><code>deep-agents/api.py</code></a></td>
+<td>Optional standalone classifier; bypassed by the normal path</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/codex/pyproject.toml"><code>codex/pyproject.toml</code></a></td>
+<td>Prompt API and fallback dependency declarations</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/deep-agents/pyproject.toml"><code>deep-agents/pyproject.toml</code></a></td>
+<td>Optional classifier dependency declarations</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/.env.example"><code>.env.example</code></a></td>
+<td>Nonsecret configuration examples; not loaded automatically</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/guide/illustrated-guide.html"><code>guide/illustrated-guide.html</code></a></td>
+<td>Offline HTML companion with both diagrams embedded</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/deep-agents/WORKFLOW.md"><code>deep-agents/WORKFLOW.md</code></a></td>
+<td>Current fallback workflow configuration</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/ARCHITECTURE.md"><code>ARCHITECTURE.md</code></a></td>
+<td>Current architecture and boundaries</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/LICENSE"><code>LICENSE</code></a></td>
+<td>MIT license</td>
+</tr>
+</tbody></table></div>
+<h3 id="install-and-run-locally">Install and run locally</h3>
+<p>Use Python 3.11 or newer, <code>uv</code>, and the shared <code>../.venv</code> environment. If that
+environment does not exist, create it once with
+<code>uv venv --python 3.12 ../.venv</code>. Run these commands from the repository root:</p>
+<div class="scroll" tabindex="0" role="region" aria-label="Installation commands; scroll horizontally on narrow screens"><pre data-language="bash"><code class="language-bash">uv pip install --python ../.venv/bin/python \
+  'fastapi&gt;=0.115' 'uvicorn&gt;=0.30' 'httpx&gt;=0.28' \
+  'boto3&gt;=1.40' 'langgraph&gt;=1.0'
+
+../.venv/bin/python -m uvicorn api:app \
+  --app-dir codex --host 127.0.0.1 --port 3100
+</code></pre></div>
+<p>This installs the dependencies declared by <a href="https://github.com/gopalcb/deep-agent-harness-with-codex/blob/main/codex/pyproject.toml"><code>codex/pyproject.toml</code></a>; it does not
+install or start Ollama, download a model or provision a Bedrock agent. The
+optional classifier’s <code>deepagents</code> dependency is not needed for this request path.</p>
+<p>The application defaults to demo mode. For real Codex execution, install and
+privately authenticate the Codex CLI, set <code>LAB_MODE=live</code> and configure
+<code>LAB_BROWSER_TOKEN</code> in the server environment. Export settings explicitly; the
+application does not load dotenv files automatically.</p>
+<p>For fallback, choose <code>LAB_FALLBACK_PROVIDER=bedrock</code> or <code>local</code> and enable the
+existing master switch <code>LAB_BEDROCK_ENABLED=true</code> for either provider. Set
+<code>LAB_WORKSPACE</code>, an external <code>LAB_CHECKPOINT_DIR</code>, <code>LAB_EDIT_FILES</code> and trusted
+<code>LAB_VALIDATION_COMMANDS</code>. Bedrock also needs an existing agent ID, alias, region
+and authorized AWS credentials through the normal SDK chain; local mode needs an
+already-running Ollama service and <code>LAB_LOCAL_MODEL</code>.</p>
+<footer>Personal-use lab · Diagrams describe the source · Live fallback provider execution remains unverified.</footer></main></body></html>

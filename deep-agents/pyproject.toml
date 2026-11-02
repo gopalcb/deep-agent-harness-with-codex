@@ -1,0 +1,10 @@
+[project]
+name = "agent-orchestrator"
+version = "0.2.0"
+description = "Routing-only Deep Agent service for Codex"
+requires-python = ">=3.11"
+dependencies = [
+  "deepagents>=0.3",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+]

@@ -1,17 +1,25 @@
+.venv/
 node_modules/
 dist/
-.venv/
+.angular/
+.agent-local/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+doc/
+docs/
+*.pyc
 .env
-.runtime/
-*.egg-info/
-
-.angular/
-
-# Local credentials, delivery state and operating-system files
-.env.*
-!.env.example
-.codex/document-delivery/
+.deployment/
 .DS_Store
+test-results/
+playwright-report/
+
+# Generated Lambda packages and local tooling
+build/
+*.zip
+.env.*
+*.pem
+
+# Generated nonsecret local authentication configuration
+telemetry-ui/public/auth-config.json
